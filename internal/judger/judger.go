@@ -151,7 +151,7 @@ func judgeSolutionByCPP(req request.JudgeRequest) (model.StatusSet, error) {
 	case 4:
 		return model.TLE, nil
 	default:
-		log.Logger.Sugar().Debugf("unknow error, exit code = %v", exitCode)
+		log.Logger.Sugar().Debugf("Unknown error, exit code = %v", exitCode)
 		return model.UKE, nil
 	}
 

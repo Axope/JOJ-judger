@@ -21,7 +21,7 @@ var (
 )
 
 const (
-	dockerImage   = "judger-cpp:0.1"
+	dockerImage   = "axope/sandbox:judger-cpp-0.1"
 	containerName = "JOJ-cpp"
 )
 
@@ -51,7 +51,7 @@ func createAndRunContainer() (string, error) {
 			Mounts: []mount.Mount{
 				{
 					Type:   mount.TypeBind,
-					Source: "/sys/fs/cgroup/memory/testMem",
+					Source: "/sys/fs/cgroup/memory/JOJ",
 					Target: "/sys/fs/cgroup/memory",
 				},
 				{

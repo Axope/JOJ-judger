@@ -33,7 +33,7 @@ func InitMQ() (<-chan amqp.Delivery, error) {
 		return nil, err
 	}
 	if queue, err = ch.QueueDeclare(
-		"judger",
+		"publisher",
 		true,
 		false,
 		false,
