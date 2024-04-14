@@ -3,14 +3,13 @@ package judger
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"github.com/Axope/JOJ-Judger/common/log"
 	"github.com/Axope/JOJ-Judger/common/request"
 	"github.com/Axope/JOJ-Judger/internal/model"
+	"github.com/Axope/JOJ-Judger/utils"
 )
 
 const (
@@ -19,30 +18,17 @@ const (
 	containerDir = "./JOJ-sandbox/container"
 )
 
-// TODO: 下载文件, 把这个删掉
-const writeFlag = true
-
-func writeToFile(path string, data []byte) error {
-	return os.WriteFile(path, data, 0644)
-}
-
 func writeRunJson(req request.JudgeRequest) error {
+	if err := utils.DownloadTestCasesByRsync(req.PID); err != nil {
+		return err
+	}
 	// make run.json
 	data := map[string]interface{}{
 		"memLimit":  req.MemoryLimit,
 		"timeLimit": req.TimeLimit,
 		"solution":  "solution",
 	}
-	testCases := make([]string, 0)
-	for id, v := range req.TestCases {
-		if writeFlag {
-			writeToFile(fmt.Sprintf("%s/%d.in", dataDir, id), []byte(v.Input))
-			writeToFile(fmt.Sprintf("%s/%d.ans", dataDir, id), []byte(v.Output))
-		}
-		testCases = append(testCases, strconv.Itoa(id))
-		id++
-	}
-	data["testCases"] = testCases
+	data["testCases"] = req.TestCases
 	log.Logger.Debug("write run.json", log.Any("data", data))
 
 	// marshal
@@ -51,7 +37,7 @@ func writeRunJson(req request.JudgeRequest) error {
 		return err
 	}
 
-	if err = writeToFile(configPath, jsonData); err != nil {
+	if err = utils.WriteToFile(configPath, jsonData); err != nil {
 		return err
 	}
 	return nil
@@ -109,7 +95,7 @@ func checkFiles() bool {
 }
 
 func judgeSolutionByCPP(req request.JudgeRequest) (model.StatusSet, error) {
-	if err := writeToFile("./JOJ-sandbox/container/solution.cpp", []byte(req.SubmitCode)); err != nil {
+	if err := utils.WriteToFile("./JOJ-sandbox/container/solution.cpp", []byte(req.SubmitCode)); err != nil {
 		return model.UKE, err
 	}
 	if err := clean(); err != nil {

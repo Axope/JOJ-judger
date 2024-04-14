@@ -51,7 +51,7 @@ func createAndRunContainer() (string, error) {
 			Mounts: []mount.Mount{
 				{
 					Type:   mount.TypeBind,
-					Source: "/sys/fs/cgroup/memory/JOJ",
+					Source: "/sys/fs/cgroup/memory/JOJ-judger",
 					Target: "/sys/fs/cgroup/memory",
 				},
 				{
