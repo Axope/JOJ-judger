@@ -6,6 +6,7 @@ require (
 	github.com/docker/docker v26.0.0+incompatible
 	github.com/docker/go-units v0.5.0
 	github.com/spf13/viper v1.18.2
+	google.golang.org/protobuf v1.33.0
 )
 
 require (

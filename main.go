@@ -2,17 +2,17 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/Axope/JOJ-Judger/common/log"
-	"github.com/Axope/JOJ-Judger/common/request"
 	"github.com/Axope/JOJ-Judger/configs"
 	"github.com/Axope/JOJ-Judger/internal/dao"
 	"github.com/Axope/JOJ-Judger/internal/judger"
 	"github.com/Axope/JOJ-Judger/internal/middleware/rabbitmq"
 	"github.com/Axope/JOJ-Judger/internal/model"
+	pb "github.com/Axope/JOJ-Judger/protocol"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"google.golang.org/protobuf/proto"
 )
 
 func main() {
@@ -43,21 +43,44 @@ func main() {
 	}
 
 	// received and serve
+	// for msg := range msgs {
+	// 	var req request.JudgeRequest
+	// 	// TODO: Unmarshal error, redeliver the message
+	// 	if err := json.Unmarshal(msg.Body, &req); err != nil {
+	// 		log.Logger.Error("json.Unmarshal", log.Any("err", err))
+	// 		break
+	// 	}
+	// 	// TODO: judge error and result
+	// 	status, err := judger.Judge(req)
+	// 	if err != nil {
+	// 		log.Logger.Error("judger internal error", log.Any("err", err))
+	// 		continue
+	// 	}
+
+	// 	if err := updateJudgeResult(req.SID, status); err != nil {
+	// 		log.Logger.Error("updateJudgeResult error", log.Any("err", err))
+	// 	} else {
+	// 		log.Logger.Debug("updateJudgeResult success")
+	// 	}
+	// 	if err = msg.Ack(false); err != nil {
+	// 		panic(err)
+	// 	}
+	// }
 	for msg := range msgs {
-		var req request.JudgeRequest
+		judgeReq := &pb.Judge{}
 		// TODO: Unmarshal error, redeliver the message
-		if err := json.Unmarshal(msg.Body, &req); err != nil {
+		if err := proto.Unmarshal(msg.Body, judgeReq); err != nil {
 			log.Logger.Error("json.Unmarshal", log.Any("err", err))
 			break
 		}
 		// TODO: judge error and result
-		status, err := judger.Judge(req)
+		status, err := judger.JudgeFromProtobuf(judgeReq)
 		if err != nil {
 			log.Logger.Error("judger internal error", log.Any("err", err))
 			continue
 		}
 
-		if err := updateJudgeResult(req.SID, status); err != nil {
+		if err := updateJudgeResult(judgeReq.Sid, status); err != nil {
 			log.Logger.Error("updateJudgeResult error", log.Any("err", err))
 		} else {
 			log.Logger.Debug("updateJudgeResult success")
