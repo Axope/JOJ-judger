@@ -1,17 +1,12 @@
 package main
 
 import (
-	"context"
-
 	"github.com/Axope/JOJ-Judger/common/log"
 	"github.com/Axope/JOJ-Judger/configs"
 	"github.com/Axope/JOJ-Judger/internal/dao"
 	"github.com/Axope/JOJ-Judger/internal/judger"
 	"github.com/Axope/JOJ-Judger/internal/middleware/rabbitmq"
-	"github.com/Axope/JOJ-Judger/internal/model"
 	pb "github.com/Axope/JOJ-Judger/protocol"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -42,30 +37,6 @@ func main() {
 		log.Logger.Info("RabbitMQ init success")
 	}
 
-	// received and serve
-	// for msg := range msgs {
-	// 	var req request.JudgeRequest
-	// 	// TODO: Unmarshal error, redeliver the message
-	// 	if err := json.Unmarshal(msg.Body, &req); err != nil {
-	// 		log.Logger.Error("json.Unmarshal", log.Any("err", err))
-	// 		break
-	// 	}
-	// 	// TODO: judge error and result
-	// 	status, err := judger.Judge(req)
-	// 	if err != nil {
-	// 		log.Logger.Error("judger internal error", log.Any("err", err))
-	// 		continue
-	// 	}
-
-	// 	if err := updateJudgeResult(req.SID, status); err != nil {
-	// 		log.Logger.Error("updateJudgeResult error", log.Any("err", err))
-	// 	} else {
-	// 		log.Logger.Debug("updateJudgeResult success")
-	// 	}
-	// 	if err = msg.Ack(false); err != nil {
-	// 		panic(err)
-	// 	}
-	// }
 	for msg := range msgs {
 		judgeReq := &pb.Judge{}
 		// TODO: Unmarshal error, redeliver the message
@@ -80,10 +51,10 @@ func main() {
 			continue
 		}
 
-		if err := updateJudgeResult(judgeReq.Sid, status); err != nil {
-			log.Logger.Error("updateJudgeResult error", log.Any("err", err))
+		if err := handleJudgeResult(judgeReq, status); err != nil {
+			log.Logger.Error("handleJudgeResult error", log.Any("err", err))
 		} else {
-			log.Logger.Debug("updateJudgeResult success")
+			log.Logger.Debug("handleJudgeResult success")
 		}
 		if err = msg.Ack(false); err != nil {
 			panic(err)
@@ -91,17 +62,24 @@ func main() {
 	}
 }
 
-func updateJudgeResult(sid string, status model.StatusSet) error {
-	log.Logger.Sugar().Debugf("update# sid = %v, status = %v", sid, status)
-	realSID, err := primitive.ObjectIDFromHex(sid)
+func handleJudgeResult(judgeReq *pb.Judge, status pb.StatusSet) error {
+	log.Logger.Sugar().Debugf("update# judgeReq = %v, status = %v", judgeReq, status)
+	judgeResultReq := &pb.JudgeResult{
+		Sid:             judgeReq.Sid,
+		Pid:             judgeReq.Pid,
+		Uid:             judgeReq.Uid,
+		Cid:             judgeReq.Cid,
+		Status:          status,
+		SubmitTimestamp: judgeReq.SubmitTimestamp,
+	}
+	msg, err := proto.Marshal(judgeResultReq)
 	if err != nil {
 		return err
 	}
-	filter := bson.D{{Key: "_id", Value: realSID}}
-	update := bson.D{{Key: "$set", Value: bson.D{{Key: "status", Value: status}}}}
-	_, err = dao.GetSubmissionColl().UpdateOne(context.Background(), filter, update)
-	if err != nil {
+	if err := rabbitmq.SendMsgByProtobuf(msg); err != nil {
 		return err
 	}
+	log.Logger.Info("send judgeResult request success",
+		log.Any("judgeResultReq", judgeResultReq))
 	return nil
 }
