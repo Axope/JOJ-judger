@@ -50,19 +50,19 @@ func checkRequiredFiles() bool {
 		utils.CheckFileExist("./JOJ-sandbox/container/solution.cpp")
 }
 
-func judgeSolutionByCPPFromProtobuf(req *pb.Judge) (pb.StatusSet, error) {
+func judgeSolutionByCPPFromProtobuf(req *pb.Judge) (pb.StatusSet, int64, int64, error) {
 	// 额外的写文件
 	if err := utils.WriteToFile("./JOJ-sandbox/container/solution.cpp", []byte(req.SubmitCode)); err != nil {
-		return pb.StatusSet_UKE, err
+		return pb.StatusSet_UKE, -1, -1, err
 	}
 
 	if !checkRequiredFiles() {
-		return pb.StatusSet_UKE, nil
+		return pb.StatusSet_UKE, -1, -1, nil
 	}
 	containerID, err := createAndRunContainer()
 	if err != nil {
 		log.Logger.Debug("run container error", log.Any("err", err))
-		return pb.StatusSet_UKE, err
+		return pb.StatusSet_UKE, -1, -1, err
 	}
 	defer removeContainer(containerID)
 	log.Logger.Debug("create container success")
@@ -70,29 +70,37 @@ func judgeSolutionByCPPFromProtobuf(req *pb.Judge) (pb.StatusSet, error) {
 	cmd := []string{"sh", "-c", "cd /root && ./sandbox -type=compile"}
 	exitCode, err := execInContainer(containerID, cmd)
 	if err != nil {
-		return pb.StatusSet_UKE, err
+		return pb.StatusSet_UKE, -1, -1, err
 	}
 	if exitCode != 0 || !utils.CheckFileExist("./JOJ-sandbox/container/solution") {
-		return pb.StatusSet_CE, nil
+		return pb.StatusSet_CE, -1, -1, nil
 	}
 
 	cmd = []string{"sh", "-c", "cd /root && ./sandbox -type=run"}
 	exitCode, err = execInContainer(containerID, cmd)
 	if err != nil {
-		return pb.StatusSet_UKE, err
+		return pb.StatusSet_UKE, -1, -1, err
 	}
 	switch exitCode {
 	case 0:
-		return pb.StatusSet_AC, nil
+		executeTime, err := utils.GetNumber("./JOJ-sandbox/container/output/executeTime")
+		if err != nil {
+			return pb.StatusSet_UKE, -1, -1, nil
+		}
+		executeMemory, err := utils.GetNumber("/sys/fs/cgroup/memory/JOJ-judger/memory.usage_in_bytes")
+		if err != nil {
+			return pb.StatusSet_UKE, -1, -1, nil
+		}
+		return pb.StatusSet_AC, executeTime, executeMemory, nil
 	case 2:
-		return pb.StatusSet_WA, nil
+		return pb.StatusSet_WA, -1, -1, nil
 	case 3:
-		return pb.StatusSet_RE, nil
+		return pb.StatusSet_RE, -1, -1, nil
 	case 4:
-		return pb.StatusSet_TLE, nil
+		return pb.StatusSet_TLE, -1, -1, nil
 	default:
 		log.Logger.Sugar().Debugf("Unknown error, exit code = %v", exitCode)
-		return pb.StatusSet_UKE, nil
+		return pb.StatusSet_UKE, -1, -1, nil
 	}
 
 }
@@ -119,7 +127,7 @@ func initContainer(req *pb.Judge) error {
 	// script (nothing to do)
 
 	// solution
-	if err :=utils.DeleteFilesByPrefix(ContainerDir, "solution");err != nil {
+	if err := utils.DeleteFilesByPrefix(ContainerDir, "solution"); err != nil {
 		return err
 	}
 
@@ -135,34 +143,34 @@ func downloadData(pid string) error {
 	return err
 }
 
-func JudgeFromProtobuf(req *pb.Judge) (pb.StatusSet, error) {
+func JudgeFromProtobuf(req *pb.Judge) (pb.StatusSet, int64, int64, error) {
 	defer log.Logger.Sync()
 	log.Logger.Info("judging req", log.Any("req", req))
 
 	if err := downloadData(req.Pid); err != nil {
-		return pb.StatusSet_UKE, err
+		return pb.StatusSet_UKE, -1, -1, err
 	}
 	if err := initContainer(req); err != nil {
-		return pb.StatusSet_UKE, err
+		return pb.StatusSet_UKE, -1, -1, err
 	}
 
 	switch req.Lang {
 	case pb.LangSet_CPP:
 		log.Logger.Debug("cpp submission")
-		result, err := judgeSolutionByCPPFromProtobuf(req)
+		result, executeTime, executeMemory, err := judgeSolutionByCPPFromProtobuf(req)
 		if err != nil {
 			log.Logger.Debug("judge error", log.Any("err", err))
-			return pb.StatusSet_UKE, err
+			return pb.StatusSet_UKE, -1, -1, err
 		}
 		log.Logger.Info("judge done",
 			log.Any("req", req), log.Any("result", result))
-		return result, nil
+		return result, executeTime, executeMemory, nil
 	// TODO: other language
 	// case model.JAVA:
 	// case model.PYTHON:
 	// case model.GO:
 	default:
 		log.Logger.Warn("unsupported language")
-		return pb.StatusSet_UKE, errors.New("unsupported language")
+		return pb.StatusSet_UKE, -1, -1, errors.New("unsupported language")
 	}
 }

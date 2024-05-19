@@ -45,13 +45,12 @@ func main() {
 			break
 		}
 		// TODO: judge error and result
-		status, err := judger.JudgeFromProtobuf(judgeReq)
+		status, executeTime, executeMemory, err := judger.JudgeFromProtobuf(judgeReq)
 		if err != nil {
 			log.Logger.Error("judger internal error", log.Any("err", err))
-			continue
 		}
 
-		if err := handleJudgeResult(judgeReq, status); err != nil {
+		if err := handleJudgeResult(judgeReq, executeTime, executeMemory, status); err != nil {
 			log.Logger.Error("handleJudgeResult error", log.Any("err", err))
 		} else {
 			log.Logger.Debug("handleJudgeResult success")
@@ -62,7 +61,7 @@ func main() {
 	}
 }
 
-func handleJudgeResult(judgeReq *pb.Judge, status pb.StatusSet) error {
+func handleJudgeResult(judgeReq *pb.Judge, executeTime int64, executeMemory int64, status pb.StatusSet) error {
 	log.Logger.Sugar().Debugf("update# judgeReq = %v, status = %v", judgeReq, status)
 	judgeResultReq := &pb.JudgeResult{
 		Sid:             judgeReq.Sid,
@@ -70,6 +69,8 @@ func handleJudgeResult(judgeReq *pb.Judge, status pb.StatusSet) error {
 		Uid:             judgeReq.Uid,
 		Cid:             judgeReq.Cid,
 		Status:          status,
+		ExecuteTime:     executeTime,
+		ExecuteMemory:   executeMemory,
 		SubmitTimestamp: judgeReq.SubmitTimestamp,
 	}
 	msg, err := proto.Marshal(judgeResultReq)

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -73,33 +74,52 @@ func DeleteFilesByPrefix(dirPath, prefix string) error {
 
 func CopyDirFile(srcDirPath, dstDirPath string) error {
 	files, err := os.ReadDir(srcDirPath)
-    if err != nil {
-        return err
-    }
-    
-    for _, file := range files {
-        sourcePath := filepath.Join(srcDirPath, file.Name())
-        destinationPath := filepath.Join(dstDirPath, file.Name())
-        
-        // 打开源文件
-        sourceFile, err := os.Open(sourcePath)
-        if err != nil {
-            return err
-        }
-        defer sourceFile.Close()
-        
-        // 创建目标文件
-        destinationFile, err := os.Create(destinationPath)
-        if err != nil {
-            return err
-        }
-        defer destinationFile.Close()
-        
-        // 将源文件内容复制到目标文件
-        _, err = io.Copy(destinationFile, sourceFile)
-        if err != nil {
-            return err
-        }
-    }
+	if err != nil {
+		return err
+	}
+
+	for _, file := range files {
+		sourcePath := filepath.Join(srcDirPath, file.Name())
+		destinationPath := filepath.Join(dstDirPath, file.Name())
+
+		// 打开源文件
+		sourceFile, err := os.Open(sourcePath)
+		if err != nil {
+			return err
+		}
+		defer sourceFile.Close()
+
+		// 创建目标文件
+		destinationFile, err := os.Create(destinationPath)
+		if err != nil {
+			return err
+		}
+		defer destinationFile.Close()
+
+		// 将源文件内容复制到目标文件
+		_, err = io.Copy(destinationFile, sourceFile)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func GetNumber(path string) (int64, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return -1, err
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return -1, err
+	}
+	strContent := strings.TrimSpace(string(content))
+	value, err := strconv.ParseInt(strContent, 10, 64)
+	if err != nil {
+		return -1, err
+	}
+	return value, nil
 }
