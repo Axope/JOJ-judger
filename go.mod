@@ -1,6 +1,6 @@
 module github.com/Axope/JOJ-Judger
 
-go 1.21
+go 1.21.9
 
 require (
 	github.com/docker/docker v26.0.0+incompatible

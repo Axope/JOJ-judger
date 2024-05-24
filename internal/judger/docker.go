@@ -20,11 +20,6 @@ var (
 	ctx = context.Background()
 )
 
-const (
-	dockerImage   = "axope/sandbox:judger-cpp-0.1"
-	containerName = "JOJ-cpp"
-)
-
 func init() {
 	var err error
 	cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -33,7 +28,7 @@ func init() {
 	}
 }
 
-func createAndRunContainer() (string, error) {
+func createAndRunContainer(dockerImage, containerName string) (string, error) {
 	currentDir, err := os.Getwd()
 	if err != nil {
 		log.Logger.Error(err.Error())
@@ -94,16 +89,6 @@ func createAndRunContainer() (string, error) {
 	return containerID, nil
 }
 
-// func stopContainer(containerID string) {
-// 	if containerID == "" {
-// 		return
-// 	}
-// 	err := cli.ContainerStop(ctx, containerID, container.StopOptions{})
-// 	if err != nil {
-// 		log.Logger.Debug("stop container error", log.Any("err", err))
-// 	}
-// }
-
 func execInContainer(containerID string, cmd []string) (int, error) {
 	log.Logger.Debug("execInContainer", log.Any("cmd", cmd))
 	// 容器执行命令的配置
@@ -116,12 +101,14 @@ func execInContainer(containerID string, cmd []string) (int, error) {
 	// 创建容器执行命令
 	execID, err := cli.ContainerExecCreate(ctx, containerID, execConfig)
 	if err != nil {
+		log.Logger.Debug("ContainerExecCreate", log.Any("err", err))
 		return -1, err
 	}
 
 	// 执行容器命令并获取输出
 	resp, err := cli.ContainerExecAttach(ctx, execID.ID, types.ExecStartCheck{})
 	if err != nil {
+		log.Logger.Debug("ContainerExecAttach", log.Any("err", err))
 		return -1, err
 	}
 
@@ -129,9 +116,11 @@ func execInContainer(containerID string, cmd []string) (int, error) {
 	stdcopy.StdCopy(os.Stdout, os.Stderr, resp.Reader)
 	inspect, err := cli.ContainerExecInspect(context.Background(), execID.ID)
 	if err != nil {
+		log.Logger.Debug("ContainerExecInspect", log.Any("err", err))
 		return -1, err
 	}
 
+	log.Logger.Debug("Exit", log.Any("err", err))
 	return inspect.ExitCode, nil
 }
 
