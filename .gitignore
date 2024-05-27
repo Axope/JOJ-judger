@@ -4,3 +4,4 @@ datas/
 docker/
 
 configs.yaml
+nohup.out
